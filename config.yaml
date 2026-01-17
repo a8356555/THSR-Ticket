@@ -1,0 +1,9 @@
+booking:
+  start_station: "台北"
+  dest_station: "左營"
+  outbound_date: "today" # "today", "tomorrow", or specific date "YYYY-MM-DD"
+  outbound_time: "09:00"
+  adult_ticket_num: 1
+  seat_prefer: "radio33" # radio33: None, radio31: Window, radio32: Aisle
+  types_of_trip: 0 # 0: One-way, 1: Round-trip
+  search_by: "radio17" # radio17: By Time, radio19: By Train Number

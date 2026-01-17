@@ -1,5 +1,6 @@
 import io
 import json
+import yaml
 from PIL import Image
 from typing import Tuple
 from datetime import date, timedelta
@@ -9,6 +10,7 @@ from requests.models import Response
 
 from thsr_ticket.model.db import Record
 from thsr_ticket.remote.http_request import HTTPRequest
+from thsr_ticket.remote.captcha_solver import GeminiCaptchaSolver
 from thsr_ticket.configs.web.param_schema import BookingModel
 from thsr_ticket.configs.web.parse_html_element import BOOKING_PAGE
 from thsr_ticket.configs.web.enums import StationMapping, TicketType
@@ -19,10 +21,23 @@ from thsr_ticket.configs.common import (
 )
 
 
-class FirstPageFlow:
     def __init__(self, client: HTTPRequest, record: Record = None) -> None:
         self.client = client
         self.record = record
+        self.config = self.load_config()
+        try:
+            self.solver = GeminiCaptchaSolver()
+            print("Gemini Solver initialized.")
+        except Exception as e:
+            print(f"Warning: Gemini Solver failed to init: {e}. Fallback to manual.")
+            self.solver = None
+
+    def load_config(self):
+        try:
+            with open('config.yaml', 'r', encoding='utf-8') as f:
+                return yaml.safe_load(f).get('booking', {})
+        except FileNotFoundError:
+            return {}
 
     def run(self) -> Tuple[Response, BookingModel]:
         # First page. Booking options
@@ -37,10 +52,10 @@ class FirstPageFlow:
             outbound_date=self.select_date('出發'),
             outbound_time=self.select_time('啟程'),
             adult_ticket_num=self.select_ticket_num(TicketType.ADULT),
-            seat_prefer=_parse_seat_prefer_value(page),
-            types_of_trip=_parse_types_of_trip_value(page),
-            search_by=_parse_search_by(page),
-            security_code=_input_security_code(img_resp),
+            seat_prefer=self.select_seat_prefer(page),
+            types_of_trip=self.select_types_of_trip(page),
+            search_by=self.select_search_by(page),
+            security_code=self.input_security_code(img_resp),
         )
         json_params = book_model.json(by_alias=True)
         dict_params = json.loads(json_params)
@@ -48,6 +63,14 @@ class FirstPageFlow:
         return resp, book_model
 
     def select_station(self, travel_type: str, default_value: int = StationMapping.Taipei.value) -> int:
+        if self.config:
+            config_key = 'start_station' if travel_type == '啟程' else 'dest_station'
+            station_name = self.config.get(config_key)
+            if station_name:
+                for station in StationMapping:
+                    if station.name == station_name:
+                        return station.value
+
         if (
             self.record
             and (
@@ -69,12 +92,26 @@ class FirstPageFlow:
         )
 
     def select_date(self, date_type: str) -> str:
+        if self.config:
+            date_str = self.config.get('outbound_date')
+            if date_str == 'today':
+                return str(date.today())
+            elif date_str == 'tomorrow':
+                return str(date.today() + timedelta(days=1))
+            elif date_str:
+                return date_str
+
+
         today = date.today()
         last_avail_date = today + timedelta(days=DAYS_BEFORE_BOOKING_AVAILABLE)
         print(f'選擇{date_type}日期（{today}~{last_avail_date}）（預設為今日）：')
         return input() or str(today)
 
     def select_time(self, time_type: str, default_value: int = 10) -> str:
+        if self.config and (time_str := self.config.get('outbound_time')):
+             return time_str
+
+
         if self.record and (
             time_str := {
                 '啟程': self.record.outbound_time,
@@ -97,6 +134,12 @@ class FirstPageFlow:
         return AVAILABLE_TIME_TABLE[selected_opt-1]
 
     def select_ticket_num(self, ticket_type: TicketType, default_ticket_num: int = 1) -> str:
+        if self.config and ticket_type == TicketType.ADULT:
+            num = self.config.get('adult_ticket_num')
+            if num is not None:
+                return f'{num}{ticket_type.value}'
+
+
         if self.record and (
             ticket_num_str := {
                 TicketType.ADULT: self.record.adult_num,
@@ -139,8 +182,33 @@ def _parse_search_by(page: BeautifulSoup) -> str:
     return tag.attrs['value']
 
 
-def _input_security_code(img_resp: bytes) -> str:
-    print('輸入驗證碼：')
-    image = Image.open(io.BytesIO(img_resp))
-    image.show()
-    return input()
+    def input_security_code(self, img_resp: bytes) -> str:
+        if self.solver:
+            print('正在使用 Gemini 破解驗證碼...')
+            try:
+                code = self.solver.solve(img_resp)
+                print(f'Gemini 破解結果: {code}')
+                return code
+            except Exception as e:
+                print(f'Gemini 失敗: {e}，轉為手動輸入。')
+
+        print('輸入驗證碼：')
+        image = Image.open(io.BytesIO(img_resp))
+        image.show()
+        return input()
+
+    def select_seat_prefer(self, page: BeautifulSoup) -> str:
+        if self.config and (val := self.config.get('seat_prefer')):
+            return val
+        return _parse_seat_prefer_value(page)
+
+    def select_types_of_trip(self, page: BeautifulSoup) -> int:
+        if self.config and (val := self.config.get('types_of_trip')) is not None:
+            return int(val)
+        return _parse_types_of_trip_value(page)
+
+    def select_search_by(self, page: BeautifulSoup) -> str:
+        if self.config and (val := self.config.get('search_by')):
+            return val
+        return _parse_search_by(page)
+

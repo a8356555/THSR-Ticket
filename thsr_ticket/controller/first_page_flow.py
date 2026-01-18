@@ -21,10 +21,10 @@ from thsr_ticket.configs.common import (
 )
 
 
-    def __init__(self, client: HTTPRequest, record: Record = None) -> None:
+    def __init__(self, client: HTTPRequest, record: Record = None, config: dict = None) -> None:
         self.client = client
         self.record = record
-        self.config = self.load_config()
+        self.config = config if config is not None else self.load_config()
         try:
             self.solver = GeminiCaptchaSolver()
             print("Gemini Solver initialized.")
@@ -199,16 +199,27 @@ def _parse_search_by(page: BeautifulSoup) -> str:
 
     def select_seat_prefer(self, page: BeautifulSoup) -> str:
         if self.config and (val := self.config.get('seat_prefer')):
-            return val
+            mapping = {
+                'none': '0',
+                'window': '1',
+                'aisle': '2'
+            }
+            # Return mapped value or original if not found (to support direct code usage)
+            return mapping.get(str(val).lower(), val)
         return _parse_seat_prefer_value(page)
 
     def select_types_of_trip(self, page: BeautifulSoup) -> int:
         if self.config and (val := self.config.get('types_of_trip')) is not None:
+             # Support 0/1 integers or strings
             return int(val)
         return _parse_types_of_trip_value(page)
 
     def select_search_by(self, page: BeautifulSoup) -> str:
         if self.config and (val := self.config.get('search_by')):
-            return val
+            mapping = {
+                'time': 'radio17',
+                'train_number': 'radio19'
+            }
+            return mapping.get(str(val).lower(), val)
         return _parse_search_by(page)
 

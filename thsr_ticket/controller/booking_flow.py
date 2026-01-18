@@ -1,3 +1,4 @@
+import yaml
 from requests.models import Response
 
 from thsr_ticket.controller.confirm_train_flow import ConfirmTrainFlow
@@ -17,20 +18,28 @@ class BookingFlow:
         self.client = HTTPRequest()
         self.db = ParamDB()
         self.record = Record()
+        self.config = self.load_config()
 
         self.error_feedback = ErrorFeedback()
         self.show_error_msg = ShowErrorMsg()
+
+    def load_config(self):
+        try:
+            with open('config.yaml', 'r', encoding='utf-8') as f:
+                return yaml.safe_load(f).get('booking', {})
+        except FileNotFoundError:
+            return {}
 
     def run(self) -> Response:
         self.show_history()
 
         # First page. Booking options
-        book_resp, book_model = FirstPageFlow(client=self.client, record=self.record).run()
+        book_resp, book_model = FirstPageFlow(client=self.client, record=self.record, config=self.config).run()
         if self.show_error(book_resp.content):
             return book_resp
 
         # Second page. Train confirmation
-        train_resp, train_model = ConfirmTrainFlow(self.client, book_resp).run()
+        train_resp, train_model = ConfirmTrainFlow(self.client, book_resp, config=self.config).run()
         if self.show_error(train_resp.content):
             return train_resp
 

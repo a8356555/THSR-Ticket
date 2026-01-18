@@ -4,6 +4,10 @@ booking:
   outbound_date: "today" # "today", "tomorrow", or specific date "YYYY-MM-DD"
   outbound_time: "09:00"
   adult_ticket_num: 1
-  seat_prefer: "radio33" # radio33: None, radio31: Window, radio32: Aisle
+  seat_prefer: "none" # options: "none" (0), "window" (1), "aisle" (2)
   types_of_trip: 0 # 0: One-way, 1: Round-trip
-  search_by: "radio17" # radio17: By Time, radio19: By Train Number
+  search_by: "time" # "time" (radio31), "train_number" (radio33)
+  
+  # Auto-selection
+  preferred_train_id: "" # Optional: Enter train ID (e.g., "0667") to auto-select. If empty, will prompt or error.
+  allow_any_train: false # If true and preferred not found, select first available.

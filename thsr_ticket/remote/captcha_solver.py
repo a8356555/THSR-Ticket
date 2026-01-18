@@ -1,4 +1,5 @@
 import os
+import re
 import google.generativeai as genai
 from dotenv import load_dotenv
 
@@ -26,4 +27,9 @@ class GeminiCaptchaSolver:
         
         # Simple cleanup: remove whitespace and potential markdown formatting
         text = response.text.strip().replace(" ", "").replace("\n", "").replace("`", "")
+        
+        # Use regex to find the first sequence of 4 alphanumeric characters
+        match = re.search(r'[A-Za-z0-9]{4}', text)
+        if match:
+            return match.group(0)
         return text

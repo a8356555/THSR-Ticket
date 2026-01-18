@@ -22,3 +22,19 @@ class TicketType(Enum):
     DISABLED = 'W'
     ELDER = 'E'
     COLLEGE = 'P'
+
+
+class SeatPrefer(Enum):
+    NONE = '0'
+    WINDOW = '1'
+    AISLE = '2'
+
+
+class SearchType(Enum):
+    TIME = 'radio17'
+    TRAIN_ID = 'radio19'
+
+
+class TripType(Enum):
+    SINGLE = 0
+    ROUND = 1

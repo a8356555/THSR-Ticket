@@ -12,3 +12,4 @@ dist/
 *.png
 test.py
 *.code-workspace
+deb*

@@ -1,6 +1,7 @@
 import os
 import re
 import google.generativeai as genai
+import ddddocr
 from dotenv import load_dotenv
 
 class GeminiCaptchaSolver:
@@ -29,7 +30,40 @@ class GeminiCaptchaSolver:
         text = response.text.strip().replace(" ", "").replace("\n", "").replace("`", "")
         
         # Use regex to find the first sequence of 4 alphanumeric characters
-        match = re.search(r'[A-Za-z0-9]{4}', text)
         if match:
             return match.group(0)
         return text
+
+class DdddOcrCaptchaSolver:
+    def __init__(self):
+        self.ocr = ddddocr.DdddOcr()
+
+    def solve(self, image_bytes: bytes) -> str:
+        """
+        Solves the CAPTCHA using ddddocr.
+        Returns the alphanumeric code.
+        """
+        res = self.ocr.classification(image_bytes)
+        return res
+
+class HybridCaptchaSolver:
+    """
+    OCR first then Gemini
+    Lazy load Gemini to avoid API costs or initialization errors until absolutely necessary
+    """
+    def __init__(self):
+        self.ocr_solver = DdddOcrCaptchaSolver()
+        self.gemini_solver = None
+        
+    def _get_gemini_solver(self):
+        if not self.gemini_solver:
+            self.gemini_solver = GeminiCaptchaSolver()
+        return self.gemini_solver
+    
+    def solve_ocr(self, image_bytes: bytes) -> str:
+        return self.ocr_solver.solve(image_bytes)
+
+    def solve_gemini(self, image_bytes: bytes) -> str:
+        return self._get_gemini_solver().solve(image_bytes)
+
+

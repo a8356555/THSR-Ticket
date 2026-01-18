@@ -1,13 +1,38 @@
-booking:
-  start_station: "台北"
-  dest_station: "左營"
-  outbound_date: "today" # "today", "tomorrow", or specific date "YYYY-MM-DD"
-  outbound_time: "09:00"
-  adult_ticket_num: 1
-  seat_prefer: "none" # options: "none" (0), "window" (1), "aisle" (2)
-  types_of_trip: 0 # 0: One-way, 1: Round-trip
-  search_by: "time" # "time" (radio31), "train_number" (radio33)
-  
-  # Auto-selection
-  preferred_train_id: "" # Optional: Enter train ID (e.g., "0667") to auto-select. If empty, will prompt or error.
-  allow_any_train: false # If true and preferred not found, select first available.
+captcha:
+  method: "HYBRID" # "GEMINI", "OCR", "HYBRID" (ocr first then gemini)
+  ocr_retries: 5
+  gemini_retries: 0
+
+tickets:
+  - name: "Friday Home"
+    # Available stations: Nangang, Taipei, Banqiao, Taoyuan, Hsinchu, Miaoli, Taichung, Changhua, Yunlin, Chiayi, Tainan, Zuouing
+    start_station: "Taipei" 
+    dest_station: "Taichung"
+    schedule:
+      type: "specific" # "specific" (YYYY-MM-DD) or "recurring" (Weekday name)
+      value: "2026-02-06"
+    time_preference: "17:30" # HH:MM format (24h)
+    train_no: "1557" # Optional: specific train number
+    ticket_amount:
+      adult: 1
+      # child: 0
+      # disabled: 0
+      # elder: 0
+      # college: 0
+    car_class: "standard" # "standard", "business"
+    trip_type: "one-way" # "one-way", "round-trip"
+    seat_preference: "none" # "none", "window", "aisle"
+
+  # - name: "Specific Date Trip"
+  #   start_station: "Taipei"
+  #   dest_station: "Taichung"
+  #   schedule:
+  #     type: "specific"
+  #     value: "2026-02-06"
+  #   time_preference: "09:00"
+  #   train_no: "" 
+  #   ticket_amount:
+  #     adult: 2
+  #   car_class: "standard"
+  #   trip_type: "one-way"
+  #   seat_preference: "none"

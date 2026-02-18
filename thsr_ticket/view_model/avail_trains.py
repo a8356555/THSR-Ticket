@@ -14,6 +14,7 @@ class AvailTrains(AbstractViewModel):
         self.cond = ParseAvailTrain()
 
     def parse(self, html: bytes) -> List[Train]:
+        self.avail_trains = []
         page = self._parser(html)
         avail = page.find_all('label', **self.cond.from_html)
         return self._parse_train(avail)

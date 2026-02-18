@@ -34,7 +34,7 @@ class BookingFlow:
     def run(self) -> List[Response]:
         tickets = self.config.get('tickets')
         captcha_config = self.config.get('captcha', {})
-        
+
         if tickets:
             responses = []
             for ticket in tickets:
@@ -42,23 +42,23 @@ class BookingFlow:
                 try:
                     # 1. Search Train
                     book_resp, book_model = SearchTrainFlow(
-                        client=self.client, 
-                        record=self.record, 
+                        client=self.client,
+                        record=self.record,
                         ticket_config=ticket,
                         captcha_config=captcha_config
                     ).run()
-                    
+
                     if self.show_error(book_resp.content):
                         print("Error on Search Page. Skipping ticket.")
                         continue
 
                     # 2. Confirm Train
                     train_resp, train_model = ConfirmTrainFlow(
-                        self.client, 
-                        book_resp, 
+                        self.client,
+                        book_resp,
                         config=ticket
                     ).run()
-                    
+
                     if self.show_error(train_resp.content):
                          print("Error on Train Confirmation. Skipping ticket.")
                          continue
@@ -77,12 +77,12 @@ class BookingFlow:
 
                     self.db.save(book_model, ticket_model)
                     responses.append(ticket_resp)
-                
+
                 except Exception as e:
                     print(f"Exception processing ticket: {e}")
                     import traceback
                     traceback.print_exc()
-            
+
             return responses
 
         else:

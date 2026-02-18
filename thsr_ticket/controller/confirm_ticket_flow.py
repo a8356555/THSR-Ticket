@@ -36,7 +36,7 @@ class ConfirmTicketFlow:
 
         if env_id := os.getenv('personal_identification'):
             return env_id
-        
+
         raise ValueError("Personal ID not found in .env (key: personal_identification).")
 
     def set_phone_num(self) -> str:
@@ -60,5 +60,7 @@ class ConfirmTicketFlow:
                 'name': 'TicketMemberSystemInputPanel:TakerMemberSystemDataView:memberSystemRadioGroup'
             },
         )
-        tag = next((cand for cand in candidates if 'checked' in cand.attrs))
+        tag = next((cand for cand in candidates if 'checked' in cand.attrs), None)
+        if tag is None:
+            raise ValueError("No member radio button is checked on the confirm ticket page.")
         return tag.attrs['value']

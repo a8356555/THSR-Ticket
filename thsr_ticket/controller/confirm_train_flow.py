@@ -36,7 +36,7 @@ class ConfirmTrainFlow:
                         print(f"Auto-selecting train ID: {train.id}")
                         return train.form_value
                 print(f"Train {train_no} not found in results.")
-            
+
             # 2. Fallback: Select first available
             print(f"Auto-selecting first available train: {trains[0].id}")
             return trains[0].form_value

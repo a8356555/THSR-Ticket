@@ -40,7 +40,7 @@ class SearchTrainFlow:
         if 'schedule' in self.config:
             target_date = self.parse_schedule(self.config['schedule'])
             outbound_date = target_date.strftime('%Y-%m-%d')
-            
+
         outbound_time = self.config.get('outbound_time')
         if 'time_preference' in self.config:
             outbound_time = self.convert_time_str(self.config['time_preference'])
@@ -48,10 +48,14 @@ class SearchTrainFlow:
         # Retry logic:
         ocr_retries = self.captcha_config.get('ocr_retries', 5)
         gemini_retries = self.captcha_config.get('gemini_retries', 0)
-        
+
+        # Skip OCR attempts if OCR solver is unavailable
+        if not self.solver or not self.solver.ocr_solver:
+            ocr_retries = 0
+
         total_attempts = ocr_retries + gemini_retries
         if not self.solver:
-             total_attempts = 1 
+             total_attempts = 1
 
         for attempt in range(total_attempts):
             method = "OCR" if attempt < ocr_retries else "GEMINI"
@@ -59,31 +63,36 @@ class SearchTrainFlow:
 
             if attempt == 0:
                 print('請稍等...')
-            
+
             book_page = self.client.request_booking_page().content
             img_resp = self.client.request_security_code_img(book_page).content
             page = BeautifulSoup(book_page, features='html.parser')
 
+            security_code = self.get_security_code(img_resp, method)
+            if not security_code:
+                print(f"CAPTCHA solve returned empty for attempt {attempt+1}. Retrying...")
+                continue
+
             book_model = BookingModel(
                 start_station=self.config.get('start_station'),
-                dest_station=self.config.get('dest_station', StationMapping.Zuouing.name), # Default to Name not Value if using validation
+                dest_station=self.config.get('dest_station', StationMapping.Zuouing.name),
                 outbound_date=outbound_date,
                 outbound_time=outbound_time,
-                adult_ticket_num=self.config.get('adult_ticket_num', 1),
-                seat_prefer=self.config.get('seat_prefer'),
-                types_of_trip=self.config.get('types_of_trip'),
+                adult_ticket_num=self.config.get('ticket_amount', {}).get('adult', 1),
+                seat_prefer=self.config.get('seat_preference'),
+                types_of_trip=self.config.get('trip_type'),
                 search_by=self.get_search_by(page),
                 to_train_id=int(self.config.get('train_no')) if self.config.get('train_no') else None,
-                security_code=self.get_security_code(img_resp, method),
+                security_code=security_code,
             )
             json_params = book_model.json(by_alias=True)
             dict_params = json.loads(json_params)
             resp = self.client.submit_booking_form(dict_params)
-            
+
             errors = self.error_feedback.parse(resp.content)
             if not errors:
                 return resp, book_model
-            
+
             is_captcha_error = any("驗證碼" in err.msg for err in errors)
             if is_captcha_error:
                 print(f"Captcha failed ({method}). Retrying...")
@@ -106,16 +115,12 @@ class SearchTrainFlow:
                 return code
             except Exception as e:
                 print(f'{method} Failed: {e}.')
-        raise ValueError("CAPTCHA solving failed and manual input is disabled.")
+        return None
 
 
     def get_search_by(self, page: BeautifulSoup) -> str:
-        if self.config.get('train_no'):
-            return SearchType.TRAIN_ID.value
-            
-        if val := self.config.get('search_by'):
-             return val
-        
+        # Always read radio values from the page since THSR assigns dynamic values per session.
+        # We always search by TIME and let ConfirmTrainFlow select the specific train_no from results.
         candidates = page.find_all('input', {'name': 'bookingMethod'})
         if checked := next((cand for cand in candidates if 'checked' in cand.attrs), None):
             return checked.attrs['value']
@@ -128,7 +133,7 @@ class SearchTrainFlow:
             target_weekday = weekdays.index(weekday_name.capitalize())
         except ValueError:
             raise ValueError(f"Invalid weekday name: {weekday_name}. Please check config.yaml.")
-            
+
         days_ahead = (target_weekday - today.weekday() + 7) % 7
         return today + timedelta(days=days_ahead)
 
@@ -152,16 +157,16 @@ class SearchTrainFlow:
 
         hour = dt.hour
         minute = dt.minute
-        
+
         if hour == 12 and minute == 0:
             return "1200N"
-        
+
         suffix = "A"
         if hour >= 12:
             suffix = "P"
             if hour > 12:
                 hour -= 12
         elif hour == 0:
-            hour = 12 
-            
+            hour = 12
+
         return f"{hour}{minute:02d}{suffix}"

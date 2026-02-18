@@ -1,38 +1,38 @@
 captcha:
   method: "HYBRID" # "GEMINI", "OCR", "HYBRID" (ocr first then gemini)
   ocr_retries: 5
-  gemini_retries: 0
+  gemini_retries: 3
+
+notification:
+  # Supports Slack, Discord, or any webhook that accepts JSON payload.
+  webhook_url: "" # e.g. https://hooks.slack.com/services/...
 
 tickets:
   - name: "Friday Home"
     # Available stations: Nangang, Taipei, Banqiao, Taoyuan, Hsinchu, Miaoli, Taichung, Changhua, Yunlin, Chiayi, Tainan, Zuouing
-    start_station: "Taipei" 
+    start_station: "Taipei"
     dest_station: "Taichung"
     schedule:
-      type: "specific" # "specific" (YYYY-MM-DD) or "recurring" (Weekday name)
-      value: "2026-02-06"
-    time_preference: "17:30" # HH:MM format (24h)
-    train_no: "1557" # Optional: specific train number
+      type: "recurring"
+      value: "Friday"
+    time_preference: "17:30"
+    train_no: "0149"
     ticket_amount:
       adult: 1
-      # child: 0
-      # disabled: 0
-      # elder: 0
-      # college: 0
-    car_class: "standard" # "standard", "business"
-    trip_type: "one-way" # "one-way", "round-trip"
-    seat_preference: "none" # "none", "window", "aisle"
+    car_class: "standard"
+    trip_type: "one-way"
+    seat_preference: "none"
 
-  # - name: "Specific Date Trip"
-  #   start_station: "Taipei"
-  #   dest_station: "Taichung"
-  #   schedule:
-  #     type: "specific"
-  #     value: "2026-02-06"
-  #   time_preference: "09:00"
-  #   train_no: "" 
-  #   ticket_amount:
-  #     adult: 2
-  #   car_class: "standard"
-  #   trip_type: "one-way"
-  #   seat_preference: "none"
+  - name: "Monday Office"
+    start_station: "Taichung"
+    dest_station: "Taipei"
+    schedule:
+      type: "recurring"
+      value: "Monday"
+    time_preference: "06:30"
+    train_no: "0300"
+    ticket_amount:
+      adult: 1
+    car_class: "standard"
+    trip_type: "one-way"
+    seat_preference: "none"

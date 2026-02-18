@@ -175,7 +175,7 @@ class BookingModel(BaseModel):
     def check_search_by(cls, value):
         if not value:
             return SearchType.TIME.value
-            
+
         if isinstance(value, str):
              # Handle "time" -> "radio17", "train_number" -> "radio19"
             try:
@@ -185,7 +185,7 @@ class BookingModel(BaseModel):
                     return SearchType.TRAIN_ID.value
             except Exception:
                 pass
-                
+
         if value not in [t.value for t in SearchType]:
              # Fallback or strict check? Original used regex radio\d+
              if str(value).startswith('radio'):
@@ -197,17 +197,18 @@ class BookingModel(BaseModel):
     def check_types_of_trip(cls, value):
         if value is None:
              return TripType.SINGLE.value
-             
+
         if isinstance(value, int):
              if value in [0, 1]:
                  return value
-                 
+
         if isinstance(value, str):
-             if value.lower() == 'single':
+             v = value.lower()
+             if v in ('single', 'one-way'):
                   return TripType.SINGLE.value
-             if value.lower() == 'round':
+             if v in ('round', 'round-trip'):
                   return TripType.ROUND.value
-                  
+
         if value not in [0, 1]:
             raise ValueError(f'Invalid type of trip: {value}')
         return value
@@ -253,7 +254,7 @@ class BookingModel(BaseModel):
              return f"{value}F"
         if isinstance(value, str) and value.isdigit():
              return f"{value}F"
-             
+
         if not re.match(r'\d+F', value):
             raise ValueError(f'Invalid adult ticket num format: {value}')
         return value

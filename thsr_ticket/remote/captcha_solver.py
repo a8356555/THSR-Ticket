@@ -1,11 +1,12 @@
 import os
 import re
 import warnings
-import google.generativeai as genai
 from dotenv import load_dotenv
 
-# Suppress the deprecation warning for google.generativeai
-warnings.filterwarnings('ignore', message='.*google.generativeai.*', category=FutureWarning)
+# Suppress deprecation warnings before importing google.generativeai
+warnings.filterwarnings('ignore', category=FutureWarning)
+
+import google.generativeai as genai
 
 class GeminiCaptchaSolver:
     def __init__(self):

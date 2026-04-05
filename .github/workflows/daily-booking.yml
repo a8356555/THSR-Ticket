@@ -2,8 +2,8 @@ name: Daily THSR Auto Booking
 
 on:
   schedule:
-    # 每天台湾时间早上 6:00 执行 (UTC 22:00 前一天)
-    - cron: '0 22 * * *'
+    # 每天台灣時間凌晨 2:00 執行 (UTC 18:00 前一天)
+    - cron: '0 18 * * *'
 
   # 允许手动触发
   workflow_dispatch:
@@ -41,7 +41,7 @@ jobs:
 
       - name: Run booking bot
         run: |
-          uv run python main.py
+          uv run python -m thsr_ticket.main --mode auto
 
       - name: Upload logs (if any)
         if: always()

@@ -1,10 +1,11 @@
-from datetime import date, timedelta, datetime
-from typing import List, Dict, Any
 import logging
+from datetime import date, datetime
+from typing import List, Dict, Any
 
 from thsr_ticket.model.db import ParamDB, TicketRequest, Reservation
 
 logger = logging.getLogger(__name__)
+
 
 class Planner:
     def __init__(self, config: Dict[str, Any], db: ParamDB):
@@ -12,102 +13,57 @@ class Planner:
         self.db = db
 
     def run(self) -> None:
-        """
-        1. Parse config to find desired tickets for the next 28 days.
-        2. Filter out tickets that are already reserved.
-        3. Filter out tickets that are already in tobuy list.
-        4. Add remaining to tobuy list.
-        """
-        desired_requests = self._generate_desired_requests()
+        today = date.today()
         existing_reservations = self.db.get_reservations()
         current_tobuy = self.db.get_ticket_requests()
 
-        new_requests = []
-        for req in desired_requests:
-            if self._is_covered(req, existing_reservations):
-                continue
-            if self._is_in_queue(req, current_tobuy):
-                continue
-            new_requests.append(req)
+        # Remove expired requests from queue
+        valid_queue = [r for r in current_tobuy if self._parse_date(r.date) >= today]
+        if len(valid_queue) < len(current_tobuy):
+            logger.info(f"Removed {len(current_tobuy) - len(valid_queue)} expired requests from queue.")
+            self.db.save_ticket_requests(valid_queue)
+            current_tobuy = valid_queue
+
+        desired = self._generate_desired_requests(today)
+
+        new_requests = [
+            req for req in desired
+            if not self._is_covered(req, existing_reservations)
+            and not self._is_in_queue(req, current_tobuy)
+        ]
 
         if new_requests:
             logger.info(f"Adding {len(new_requests)} new ticket requests to queue.")
-            # Append to existing queue
-            updated_queue = current_tobuy + new_requests
-            self.db.save_ticket_requests(updated_queue)
+            self.db.save_ticket_requests(current_tobuy + new_requests)
         else:
             logger.info("No new ticket requests needed.")
 
-    def _generate_desired_requests(self) -> List[TicketRequest]:
+    def _generate_desired_requests(self, today: date) -> List[TicketRequest]:
         requests = []
-        tickets_config = self.config.get('tickets', [])
-
-        # Look ahead 28 days
-        today = date.today()
-        date_range = [today + timedelta(days=i) for i in range(29)] # 0 to 28
-
-        for ticket_conf in tickets_config:
-            schedule = ticket_conf.get('schedule', {})
-            sch_type = schedule.get('type')
-            sch_val = schedule.get('value') # specific date or weekday name
-
-            target_dates = []
-
-            if sch_type == 'specific':
-                # format YYYY-MM-DD
-                try:
-                    d = datetime.strptime(str(sch_val), "%Y-%m-%d").date()
-                    if d >= today:
-                        target_dates.append(d)
-                except ValueError:
-                    logger.warning(f"Invalid date format in config: {sch_val}")
-
-            elif sch_type == 'recurring':
-                # Value matches weekday? e.g. "Friday"
-                # 0=Monday, 6=Sunday
-                weekdays = {
-                    'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
-                    'friday': 4, 'saturday': 5, 'sunday': 6
-                }
-                desired_wd = weekdays.get(str(sch_val).lower())
-                if desired_wd is not None:
-                    for d in date_range:
-                        if d.weekday() == desired_wd:
-                            target_dates.append(d)
-
-            for d in target_dates:
-                # Create a request
-                # We generate a deterministic ID based on config + date to avoid dupes logic
-                req_id = f"{ticket_conf.get('name')}_{d.isoformat()}"
-
-                # Clone config and inject the specific date for this request
-                # This ensures the Buyer knows exactly which date to book
-                req_config = ticket_conf.copy()
-                req_config['outbound_date'] = d.strftime("%Y-%m-%d") # Inject for SearchTrainFlow
-
-                # IMPORTANT: Remove 'schedule' so SearchTrainFlow doesn't recalculate/overwrite the date
-                if 'schedule' in req_config:
-                    del req_config['schedule']
-
+        for ticket_conf in self.config.get('tickets', []):
+            name = ticket_conf.get('name', '')
+            for date_str in ticket_conf.get('dates', []):
+                d = self._parse_date(date_str)
+                if d is None or d < today:
+                    continue
+                req_config = {k: v for k, v in ticket_conf.items() if k != 'dates'}
+                req_config['outbound_date'] = date_str
                 requests.append(TicketRequest(
-                    id=req_id,
+                    id=f"{name}_{d.isoformat()}",
                     config=req_config,
-                    date=d.strftime("%Y-%m-%d")
+                    date=date_str,
                 ))
-
         return requests
 
+    def _parse_date(self, date_str: str):
+        try:
+            return datetime.strptime(date_str, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid date format: {date_str}")
+            return None
+
     def _is_covered(self, req: TicketRequest, reservations: List[Reservation]) -> bool:
-        # Check if there is a reservation corresponding to this request
-        # Assumption: Reservation stores the original request or enough info to match
-        for const in reservations:
-            # Flexible matching: by ID if available, or by content
-            if const.request.id == req.id:
-                return True
-        return False
+        return any(r.request.id == req.id for r in reservations)
 
     def _is_in_queue(self, req: TicketRequest, queue: List[TicketRequest]) -> bool:
-        for item in queue:
-            if item.id == req.id:
-                return True
-        return False
+        return any(item.id == req.id for item in queue)

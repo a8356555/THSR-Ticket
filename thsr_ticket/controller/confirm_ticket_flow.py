@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from typing import Tuple
 
 from bs4 import BeautifulSoup
-from requests.models import Response
+from curl_cffi.requests import Response
 from thsr_ticket.configs.web.param_schema import ConfirmTicketModel
 from thsr_ticket.model.db import Record
 from thsr_ticket.remote.http_request import HTTPRequest

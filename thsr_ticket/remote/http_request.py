@@ -1,8 +1,7 @@
 from typing import Mapping, Any
 
-import requests
-from requests.adapters import HTTPAdapter, Retry
-from requests.models import Response
+from curl_cffi.requests import Session
+from curl_cffi.requests import Response
 from bs4 import BeautifulSoup
 
 from thsr_ticket.configs.web.http_config import HTTPConfig
@@ -11,25 +10,12 @@ from thsr_ticket.configs.web.parse_html_element import BOOKING_PAGE
 
 class HTTPRequest:
     def __init__(self, max_retries: int = 3) -> None:
-        self.sess = requests.Session()
-
-        # Configure retry strategy with backoff
-        retry_strategy = Retry(
-            total=max_retries,
-            backoff_factor=1,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        self.sess.mount("https://", adapter)
-        self.sess.mount("http://", adapter)
+        self.sess = Session(impersonate="chrome131")
 
         self.common_head_html: dict = {
             "Host": HTTPConfig.HTTPHeader.BOOKING_PAGE_HOST,
-            "User-Agent": HTTPConfig.HTTPHeader.USER_AGENT,
             "Accept": HTTPConfig.HTTPHeader.ACCEPT_HTML,
             "Accept-Language": HTTPConfig.HTTPHeader.ACCEPT_LANGUAGE,
-            "Accept-Encoding": HTTPConfig.HTTPHeader.ACCEPT_ENCODING
         }
 
     def request_booking_page(self) -> Response:

@@ -1,13 +1,16 @@
-from typing import List, Optional, Union, Dict
-from pydantic import BaseModel, HttpUrl, validator
+from typing import List, Optional
+from pydantic import BaseModel, validator
+
 
 class CaptchaConfig(BaseModel):
     method: str = "HYBRID"
     ocr_retries: int = 5
     gemini_retries: int = 0
 
+
 class NotificationConfig(BaseModel):
     webhook_url: Optional[str] = None
+
 
 class TicketAmount(BaseModel):
     adult: int = 0
@@ -16,21 +19,18 @@ class TicketAmount(BaseModel):
     elder: int = 0
     college: int = 0
 
-class ScheduleConfig(BaseModel):
-    type: str # specific, recurring
-    value: str # YYYY-MM-DD or Weekday
 
 class TicketConfig(BaseModel):
     name: str
     start_station: str
     dest_station: str
-    schedule: ScheduleConfig
-    time_preference: str
-    train_no: Optional[str] = None
+    dates: List[str]          # list of YYYY-MM-DD
+    candidates: List[str]     # train IDs in priority order
     ticket_amount: TicketAmount
     car_class: str = "standard"
     trip_type: str = "one-way"
     seat_preference: str = "none"
+
 
 class AppConfig(BaseModel):
     captcha: CaptchaConfig = CaptchaConfig()

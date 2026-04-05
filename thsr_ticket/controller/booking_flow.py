@@ -1,6 +1,6 @@
 import yaml
 from typing import List
-from requests.models import Response
+from curl_cffi.requests import Response
 
 from thsr_ticket.controller.search_train_flow import SearchTrainFlow
 from thsr_ticket.controller.confirm_train_flow import ConfirmTrainFlow

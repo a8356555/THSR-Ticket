@@ -2,7 +2,7 @@ name: Daily Booking
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Run daily at midnight UTC (08:00 Taipei)
+    - cron: '0 18 * * *' # Run daily at 02:00 Taipei time (UTC+8)
   workflow_dispatch:
 
 jobs:

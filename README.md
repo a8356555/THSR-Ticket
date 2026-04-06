@@ -1,82 +1,101 @@
-# 高鐵訂票小幫手
+# THSR-Ticket
 
-**!!--純研究用途，請勿用於不當用途--!!**
+> **⚠️ 純研究用途，請勿用於不當用途**
 
-此程式提供另一種輕便的方式訂購高鐵車票，操作介面為命令列介面。相較於使用網頁訂購，本程式因為省卻了渲染網頁介面的時間，只保留最核心的訂購功能，因此能省下大量等待的時間。
+台灣高鐵自動訂票機器人。提供指定日期與候選班次，系統依優先順序自動訂票，每日重試直到訂到為止。
 
-**(2025/05/12 update)** 另有 Rust 新版本提供執行檔、早鳥票預訂、會員購票等新功能，可以參考 [thsr-ticket-rs](https://github.com/BreezeWhite/thsr-ticket-rs)
+## 功能
 
-## 執行
+- 依優先順序嘗試多個候選班次，訂到第一個有位的班次
+- 若用次要班次訂到票，仍會繼續追求優先班次
+- 付款期限到期前自動重新訂票（滾動式預訂）
+- GitHub Actions 每日 02:00 UTC+8 自動執行
 
-本程式由python語言所寫成，因此必須先安裝python才能夠使用。官方下載網址[點這裡](https://www.python.org/downloads/release/python-381/)
+## 快速開始
 
-### 方法一 （快速）
-在已經有安裝好python的環境下，執行以下指令
-``` bash
-pip install git+https://github.com/BreezeWhite/THSR-Ticket.git
+### 1. 安裝依賴
 
-# 執行
-thsr-ticket
+```bash
+uv sync --dev
+# 若需要本地 OCR CAPTCHA 解析
+uv sync --extra ocr
 ```
 
-### 方法二
-首先先將程式碼下載到本機，執行以下指令或是直接按右上方的下載按鈕
+### 2. 設定 `.env`
 
-```
-git clone https://github.com/BreezeWhite/THSR-Ticket.git
-```
-
-再來進入到資料夾中
-
-```
-cd thsr_ticket
+```env
+GEMINI_API_KEY=your_key
+personal_identification=A123456789
+phone_number=0912345678
+email=your@email.com
 ```
 
-安裝必要的套件
+### 3. 設定 `config.yaml`
 
+```yaml
+captcha:
+  method: "HYBRID"   # GEMINI / OCR / HYBRID
+  ocr_retries: 5
+  gemini_retries: 3
+
+tickets:
+  - name: "Friday Home"
+    start_station: "Taipei"
+    dest_station: "Taichung"
+    dates:
+      - "2026-04-17"
+      - "2026-04-24"
+    candidates:
+      - "149"     # 優先 1
+      - "1245"    # 優先 2（備選）
+    ticket_amount:
+      adult: 1
+    car_class: "standard"
+    trip_type: "one-way"
+    seat_preference: "none"
 ```
-python -m pip install -r requirements.txt
+
+### 4. 執行
+
+```bash
+uv run python -m thsr_ticket.main --mode auto
 ```
 
-最後執行程式
+## 執行模式
 
-```
-python thsr_ticket/main.py
-```
+| 模式 | 說明 |
+|------|------|
+| `auto` | 依序執行 plan → buy → manage |
+| `plan` | 根據 config.yaml 產生待訂清單 |
+| `buy` | 處理待訂清單，嘗試訂票 |
+| `manage` | 檢查並處理即將到期的訂位 |
 
+## 站點代碼
 
+| 名稱 | 英文 |
+|------|------|
+| 南港 | Nangang |
+| 台北 | Taipei |
+| 板橋 | Banqiao |
+| 桃園 | Taoyuan |
+| 新竹 | Hsinchu |
+| 苗栗 | Miaoli |
+| 台中 | Taichung |
+| 彰化 | Changhua |
+| 雲林 | Yunlin |
+| 嘉義 | Chiayi |
+| 台南 | Tainan |
+| 左營 | Zuouing |
 
-## 注意事項!!!
+## CI/CD（GitHub Actions）
 
-本程式依舊有許多尚未完成的部分，僅具備基本訂購的功能，若是僅需要訂購成人票、且無特殊需求者，此程式對您而言是加速訂購流程的方便小工具。不符合以上描述者，目前仍建議使用官方網頁進行訂購。
+在 repo Settings → Secrets 設定：`GEMINI_API_KEY`、`PERSONAL_ID`、`PHONE_NUMBER`、`EMAIL`
 
-#### 提供功能
+每日 02:00 UTC+8 自動執行，訂票結果（`tobuy.json`、`reservations.json`）自動 commit 回 repo。
 
-- [x] 選擇啟程、到達站
-- [x] 選擇出發日期、時間
-- [x] 選擇班次
-- [x] 選擇**"成人"**票數
-- [x] 輸入驗證碼
-- [x] 輸入身分證字號
-- [x] 輸入手機號碼
-- [x] 保留此次輸入紀錄，下次可快速選擇此次紀錄
+## 技術說明
 
-#### 未提供功能
-
-以下功能為未提供輸入的選項，但程式具備相關功能，可依照自身需求、對程式進行修改
-
-- [ ] 選擇車廂種類(標準/商務)
-- [ ] 座位喜好(靠窗/走道)
-- [ ] 訂位方式(依時間搜尋車次/直接輸入車次號碼)
-- [ ] 輸入孩童/愛心/敬老/學生優惠票數
-- [ ] 僅顯示早鳥優惠票
-
-#### 未完成功能
-
-- [ ] 重新產生認證碼
-- [ ] 語音播放認證碼
-- [ ] 重新查詢車次
-- [ ] 輸入護照號碼
-- [ ] 輸入市話
-- [ ] 輸入電子郵件
-- [ ] 會員購票
+- HTTP 客戶端使用 `curl-cffi`（模擬 Chrome TLS fingerprint，繞過 Akamai bot 偵測）
+- CAPTCHA 支援三種模式：Gemini Vision API、本地 ddddocr OCR、Hybrid（OCR 優先）
+- 狀態以 JSON 檔案儲存於 repo（`tobuy.json`、`reservations.json`）
+- 詳細架構見 `ARCHITECTURE.md`，參數說明見 `docs/parameter_reference.md`

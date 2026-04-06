@@ -1,14 +1,16 @@
 import re
 from datetime import date, datetime
-from typing import Mapping, Any
+from typing import Mapping, Any, Union
 
 from pydantic import (
     BaseModel as PydanticBaseModel,
     Field,
-    validator
+    validator,
+    root_validator
 )
 
 from thsr_ticket.configs.common import AVAILABLE_TIME_TABLE
+from thsr_ticket.configs.web.enums import StationMapping, SeatPrefer, SearchType, TripType
 
 
 BOOKING_SCHEMA: Mapping[str, Any] = {
@@ -128,8 +130,8 @@ class BaseModel(PydanticBaseModel):
 
 class BookingModel(BaseModel):
 
-    start_station: int = Field(..., alias='selectStartStation')
-    dest_station: int = Field(..., alias='selectDestinationStation')
+    start_station: Union[int, str] = Field(..., alias='selectStartStation')
+    dest_station: Union[int, str] = Field(..., alias='selectDestinationStation')
     search_by: str = Field(..., alias='bookingMethod')
     types_of_trip: int = Field(..., alias='tripCon:typesoftrip')
     outbound_date: str = Field(..., alias='toTimeInputField')
@@ -139,6 +141,21 @@ class BookingModel(BaseModel):
     form_mark: str = Field('', alias='BookingS1Form:hf:0')
     class_type: int = Field(0, alias='trainCon:trainRadioGroup')
     inbound_date: str = Field(None, alias='backTimeInputField')
+
+    @validator('start_station', 'dest_station', pre=True)
+    def parse_station(cls, value):
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str):
+            try:
+                return StationMapping[value].value
+            except KeyError:
+                # Try case-insensitive lookup if needed, or fail
+                for station in StationMapping:
+                     if station.name.lower() == value.lower():
+                          return station.value
+                raise ValueError(f"Invalid station name: {value}")
+        return value
     inbound_time: str = Field(None, alias='backTimeTable')
     to_train_id: int = Field(None, alias='toTrainIDInputField')
     back_train_id: int = Field(None, alias='backTrainIDInputField')
@@ -154,14 +171,44 @@ class BookingModel(BaseModel):
             raise ValueError(f'Unknown station number: {station}')
         return station
 
-    @validator('search_by')
+    @validator('search_by', pre=True)
     def check_search_by(cls, value):
-        if not re.match(r'radio\d+', value):
-            raise ValueError(f'Invalid search_by format: {value}')
+        if not value:
+            return SearchType.TIME.value
+
+        if isinstance(value, str):
+             # Handle "time" -> "radio17", "train_number" -> "radio19"
+            try:
+                if value.lower() in ('time', 'time_table'):
+                    return SearchType.TIME.value
+                if value.lower() in ('train_id', 'train_no', 'train_number'):
+                    return SearchType.TRAIN_ID.value
+            except Exception:
+                pass
+
+        if value not in [t.value for t in SearchType]:
+             # Fallback or strict check? Original used regex radio\d+
+             if str(value).startswith('radio'):
+                 return value
+             raise ValueError(f'Invalid search_by format: {value}')
         return value
 
-    @validator('types_of_trip')
+    @validator('types_of_trip', pre=True)
     def check_types_of_trip(cls, value):
+        if value is None:
+             return TripType.SINGLE.value
+
+        if isinstance(value, int):
+             if value in [0, 1]:
+                 return value
+
+        if isinstance(value, str):
+             v = value.lower()
+             if v in ('single', 'one-way'):
+                  return TripType.SINGLE.value
+             if v in ('round', 'round-trip'):
+                  return TripType.ROUND.value
+
         if value not in [0, 1]:
             raise ValueError(f'Invalid type of trip: {value}')
         return value
@@ -192,8 +239,22 @@ class BookingModel(BaseModel):
             raise ValueError(f'Unknown time string: {value}')
         return value
 
-    @validator('adult_ticket_num')
+    @validator('seat_prefer', pre=True)
+    def parse_seat_prefer(cls, value):
+        if isinstance(value, str):
+            try:
+                return SeatPrefer[value.upper()].value
+            except KeyError:
+                pass
+        return value
+
+    @validator('adult_ticket_num', pre=True)
     def check_adult_ticket_num(cls, value):
+        if isinstance(value, int):
+             return f"{value}F"
+        if isinstance(value, str) and value.isdigit():
+             return f"{value}F"
+
         if not re.match(r'\d+F', value):
             raise ValueError(f'Invalid adult ticket num format: {value}')
         return value

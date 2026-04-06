@@ -1,12 +1,11 @@
+import json
 import os
-from typing import Mapping, List, Iterable, Any, NamedTuple
-
-from tinydb import TinyDB, Query
-from tinydb.database import Document
+from dataclasses import dataclass, field, asdict
+from typing import List, Optional, Dict, Any, Union
+from datetime import datetime
+from typing import NamedTuple
 
 from thsr_ticket import MODULE_PATH
-from thsr_ticket.configs.web.param_schema import BookingModel, ConfirmTicketModel
-
 
 class Record(NamedTuple):
     personal_id: str = None
@@ -17,37 +16,108 @@ class Record(NamedTuple):
     adult_num: str = None
 
 
+@dataclass
+class TicketRequest:
+    """
+    Represents a request to buy a ticket.
+    Stored in tobuy.json.
+
+    Attributes:
+        id (str): Unique identifier for this request (e.g., "TripName_2023-01-01").
+        config (Dict[str, Any]): The configuration dictionary used by SearchTrainFlow (from config.yaml).
+        date (str): The specific target date (YYYY-MM-DD) for this single request.
+        created_at (str): ISO timestamp of creation.
+    """
+    # Unique identifier for the request, useful for deduction
+    id: str
+
+    # The dictionary required by SearchTrainFlow (config.yaml structure)
+    # expected keys: start_station, dest_station, outbound_time, ticket_num, etc.
+    config: Dict[str, Any]
+
+    # Specific target date for this request (YYYY-MM-DD or YYYY/MM/DD)
+    date: str
+
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+
+
+@dataclass
+class Reservation:
+    """
+    Represents a successful reservation.
+    Stored in reservations.json
+    """
+    # The booking ID (PNR) returned by THSR
+    pnr: str
+
+    # When this reservation must be paid by
+    payment_deadline: str
+
+    # The original request logic
+    request: TicketRequest
+
+    # Additional info
+    train_id: Optional[str] = None
+    seat_str: Optional[str] = None
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+
+
 class ParamDB:
-    def __init__(self, db_path: str = None):
-        if db_path is None:
-            db_path = os.path.join(MODULE_PATH, ".db", "history.json")
-        self.db_path = db_path
-        db_dir = db_path[:db_path.rfind("/")]
-        if not os.path.exists(db_dir):
-            os.makedirs(db_dir)
+    def __init__(self, db_root: str = None):
+        if db_root is None:
+            # Default to project root (parent of thsr_ticket module)
+            # MODULE_PATH is .../thsr_ticket
+            # We want .../reservations.json
+            self.db_root = os.path.dirname(MODULE_PATH.rstrip('/'))
+        else:
+            self.db_root = db_root
 
-    def save(self, book_model: BookingModel, ticket: ConfirmTicketModel) -> None:
-        data = Record(
-            ticket.personal_id,
-            ticket.phone_num,
-            book_model.start_station,
-            book_model.dest_station,
-            book_model.outbound_time,
-            book_model.adult_ticket_num
-        )._asdict()  # type: ignore
-        with TinyDB(self.db_path, sort_keys=True, indent=4) as db:
-            hist = db.search(Query().personal_id == ticket.personal_id)
-            if self._compare_hist(data, hist) is None:
-                db.insert(data)
+        self.tobuy_path = os.path.join(self.db_root, "tobuy.json")
+        self.reservations_path = os.path.join(self.db_root, "reservations.json")
 
-    def get_history(self) -> List[Record]:
-        with TinyDB(self.db_path) as db:
-            dicts = db.all()
-        return [Record(**d) for d in dicts]   # type: ignore
+    def _load_json(self, path: str) -> List[Dict]:
+        if not os.path.exists(path):
+            return []
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return []
 
-    def _compare_hist(self, data: Mapping[str, Any], hist: Iterable[Document]) -> int:
-        for idx, h in enumerate(hist):
-            comp = [h[k] for k in data.keys() if h[k] == data[k]]
-            if len(comp) == len(data):
-                return idx
-        return None
+    def _save_json(self, path: str, data: List[Dict]):
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+        except IOError as e:
+            print(f"Error saving to {path}: {e}")
+
+    def get_ticket_requests(self) -> List[TicketRequest]:
+        data = self._load_json(self.tobuy_path)
+        requests = []
+        for item in data:
+            try:
+                requests.append(TicketRequest(**item))
+            except TypeError:
+                print(f"Skipping invalid ticket request item: {item}")
+        return requests
+
+    def save_ticket_requests(self, requests: List[TicketRequest]):
+        data = [asdict(req) for req in requests]
+        self._save_json(self.tobuy_path, data)
+
+    def get_reservations(self) -> List[Reservation]:
+        data = self._load_json(self.reservations_path)
+        reservations = []
+        for item in data:
+            try:
+                # Handle nested TicketRequest
+                if 'request' in item and isinstance(item['request'], dict):
+                    item['request'] = TicketRequest(**item['request'])
+                reservations.append(Reservation(**item))
+            except TypeError:
+                print(f"Skipping invalid reservation item: {item}")
+        return reservations
+
+    def save_reservations(self, reservations: List[Reservation]):
+        data = [asdict(res) for res in reservations]
+        self._save_json(self.reservations_path, data)

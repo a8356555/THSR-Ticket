@@ -1,0 +1,58 @@
+name: Daily Booking
+
+on:
+  schedule:
+    - cron: '0 18 * * *' # Run daily at 02:00 Taipei time (UTC+8)
+  workflow_dispatch:
+
+jobs:
+  book-tickets:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Allow pushing changes
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Health Check (Website Structure)
+      run: |
+        uv run python health_check.py
+
+    - name: Run Booking System
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        personal_identification: ${{ secrets.PERSONAL_ID }}
+        phone_number: ${{ secrets.PHONE_NUMBER }}
+        email: ${{ secrets.EMAIL }}
+      run: |
+        uv run python -m thsr_ticket.main --mode auto
+
+    - name: Commit and Push State
+      if: always()
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Add files if they exist (they might be new)
+        git add tobuy.json reservations.json || true
+        
+        # Commit if there are changes
+        if git diff --staged --quiet; then
+          echo "No changes to commit."
+        else
+          git commit -m "Update booking state [skip ci]"
+          git push
+        fi

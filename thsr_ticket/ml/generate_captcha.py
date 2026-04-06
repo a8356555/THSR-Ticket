@@ -54,7 +54,7 @@ class GenerateCaptcha:
                 if p < prob:
                     arr[i, j] = 0 if arr[i, j] > 128 else 255
         return Image.fromarray(arr)
-    
+
     def add_arc(self, img: Image.Image) -> Image.Image:
         arr = np.array(img)
         start = random.randint(20, 25)

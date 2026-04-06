@@ -12,25 +12,11 @@ tickets:
     # Available stations: Nangang, Taipei, Banqiao, Taoyuan, Hsinchu, Miaoli, Taichung, Changhua, Yunlin, Chiayi, Tainan, Zuouing
     start_station: "Taipei"
     dest_station: "Taichung"
-    schedule:
-      type: "recurring"
-      value: "Friday"
-    time_preference: "17:30"
-    train_no: "0149"
-    ticket_amount:
-      adult: 1
-    car_class: "standard"
-    trip_type: "one-way"
-    seat_preference: "none"
-
-  - name: "Monday Office"
-    start_station: "Taichung"
-    dest_station: "Taipei"
-    schedule:
-      type: "recurring"
-      value: "Monday"
-    time_preference: "06:30"
-    train_no: "0300"
+    dates:
+      - "2026-04-17"
+    candidates:
+      - "149"    # 優先 1
+      - "1245"   # 優先 2
     ticket_amount:
       adult: 1
     car_class: "standard"

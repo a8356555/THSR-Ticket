@@ -1,10 +1,11 @@
 captcha:
-  method: "HYBRID" # "GEMINI", "OCR", "HYBRID"
+  method: "HYBRID" # "GEMINI", "OCR", "HYBRID" (ocr first then gemini)
   ocr_retries: 5
   gemini_retries: 3
 
 notification:
-  webhook_url: ""
+  # Supports Slack, Discord, or any webhook that accepts JSON payload.
+  webhook_url: "" # e.g. https://hooks.slack.com/services/...
 
 tickets:
   - name: "Friday Home"

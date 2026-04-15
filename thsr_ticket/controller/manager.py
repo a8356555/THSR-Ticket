@@ -71,9 +71,11 @@ class Manager:
         THSR usually gives a date.
         """
         try:
-            # Assuming YYYY/MM/DD
-            deadline = datetime.strptime(deadline_str, "%Y/%m/%d")
-            # If (deadline - now) < 1 day
+            if len(deadline_str.split("/")) == 3:
+                deadline = datetime.strptime(deadline_str, "%Y/%m/%d")
+            else:
+                # THSR sometimes returns MM/DD without year
+                deadline = datetime.strptime(deadline_str, "%m/%d").replace(year=now.year)
             delta = deadline - now
             return delta.days < 1
         except ValueError:

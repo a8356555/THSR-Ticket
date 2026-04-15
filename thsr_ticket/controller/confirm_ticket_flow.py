@@ -27,8 +27,30 @@ class ConfirmTicketFlow:
 
         json_params = ticket_model.json(by_alias=True)
         dict_params = json.loads(json_params)
-        resp = self.client.submit_ticket(dict_params)
+
+        submit_url = self._parse_form_action(page)
+        if submit_url:
+            from thsr_ticket.configs.web.http_config import HTTPConfig
+            full_url = HTTPConfig.BASE_URL + submit_url
+            resp = self.client.sess.post(
+                full_url, headers=self.client.common_head_html,
+                data=dict_params, allow_redirects=True, timeout=60,
+            )
+        else:
+            resp = self.client.submit_ticket(dict_params)
         return resp, ticket_model
+
+    @staticmethod
+    def _parse_form_action(page: BeautifulSoup) -> str:
+        """Extract the BookingS3Form action URL from HTML.
+
+        Dynamically discovers the correct wicket interface number, which
+        changes when train-ID search skips Step 2.
+        """
+        form = page.find('form', {'id': 'BookingS3FormSP'})
+        if form and form.get('action'):
+            return form['action']
+        return ''
 
     def set_personal_id(self) -> str:
         if self.record and (personal_id := self.record.personal_id):

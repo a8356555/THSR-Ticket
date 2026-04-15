@@ -1,5 +1,6 @@
 from typing import Tuple
 import json
+import time
 from bs4 import BeautifulSoup
 from curl_cffi.requests import Response
 
@@ -68,7 +69,25 @@ class SearchTrainFlow:
             )
             json_params = book_model.json(by_alias=True, exclude_none=True)
             dict_params = json.loads(json_params)
-            resp = self.client.submit_booking_form(dict_params)
+
+            # Dynamically discover form action URL
+            form = page.find('form', {'id': 'BookingS1Form'})
+            if form and form.get('action'):
+                from thsr_ticket.configs.web.http_config import HTTPConfig
+                action_url = HTTPConfig.BASE_URL + form['action']
+                resp = self.client.sess.post(
+                    action_url, headers=self.client.common_head_html,
+                    data=dict_params, allow_redirects=True, timeout=60,
+                )
+            else:
+                resp = self.client.submit_booking_form(dict_params)
+
+            # Detect server error (e.g. invalid train ID, THSR internal issue)
+            resp_page = BeautifulSoup(resp.content, features='html.parser')
+            if resp_page.find(string=lambda s: s and '內部伺服器發生錯誤' in s if s else False):
+                print(f"THSR server error on attempt {attempt+1}. Retrying after delay...")
+                time.sleep(3)
+                continue
 
             errors = self.error_feedback.parse(resp.content)
             if not errors:
@@ -98,20 +117,37 @@ class SearchTrainFlow:
         return None
 
     def get_search_by(self, page: BeautifulSoup) -> str:
-        # When a candidate train_id is given, search by train number
+        radios = page.find_all('input', {'name': 'bookingMethod'})
+        label_map = self._discover_radio_values(radios)
+
         if self.config.get('current_candidate'):
-            candidates = page.find_all('input', {'name': 'bookingMethod'})
-            for cand in candidates:
-                val = cand.attrs.get('value', '')
-                # radio19 is typically the train-number search option
-                if val == SearchType.TRAIN_ID.value:
-                    return val
+            if train_id_val := label_map.get('train_id'):
+                return train_id_val
             return SearchType.TRAIN_ID.value
-        # Otherwise search by time
-        candidates = page.find_all('input', {'name': 'bookingMethod'})
-        if checked := next((c for c in candidates if 'checked' in c.attrs), None):
+
+        if time_val := label_map.get('time'):
+            return time_val
+        if checked := next((r for r in radios if 'checked' in r.attrs), None):
             return checked.attrs['value']
         return SearchType.TIME.value
+
+    @staticmethod
+    def _discover_radio_values(radios) -> dict:
+        """Discover radio values by label text instead of hardcoded enum values.
+
+        Returns dict with keys 'time' and/or 'train_id' mapped to their
+        current radio values, resilient to THSR changing value attributes.
+        """
+        result = {}
+        for radio in radios:
+            value = radio.attrs.get('value', '')
+            label = radio.find_parent('label')
+            text = label.get_text(strip=True) if label else ''
+            if '時間' in text or 'time' in text.lower():
+                result['time'] = value
+            elif '車次' in text or 'train' in text.lower():
+                result['train_id'] = value
+        return result
 
     def _default_time(self) -> str:
         """Default time used when searching by train ID (required field but ignored by THSR)."""

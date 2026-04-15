@@ -31,8 +31,9 @@ class SeatPrefer(Enum):
 
 
 class SearchType(Enum):
-    TIME = 'radio17'
-    TRAIN_ID = 'radio19'
+    """Fallback values; runtime discovery via label text is preferred."""
+    TIME = 'radio31'
+    TRAIN_ID = 'radio33'
 
 
 class TripType(Enum):

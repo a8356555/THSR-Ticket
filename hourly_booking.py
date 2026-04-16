@@ -12,7 +12,7 @@ import logging
 import signal
 import subprocess
 import sys
-import time
+import threading
 from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -25,7 +25,7 @@ PROJECT_ROOT = Path(__file__).parent
 RESERVATIONS_PATH = PROJECT_ROOT / "reservations.json"
 CONFIG_PATH = PROJECT_ROOT / "config.yaml"
 
-_shutdown = False
+_shutdown_event = threading.Event()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,9 +45,8 @@ logger = logging.getLogger("hourly_booking")
 
 
 def _handle_signal(signum, _frame):
-    global _shutdown
     logger.info("Received signal %d, shutting down gracefully...", signum)
-    _shutdown = True
+    _shutdown_event.set()
 
 
 signal.signal(signal.SIGTERM, _handle_signal)
@@ -166,21 +165,15 @@ def main() -> None:
         logger.info("All target trains booked! Scheduler complete.")
         return
 
-    while not _shutdown:
+    while not _shutdown_event.is_set():
         now = datetime.now()
         target = next_run_time(now)
-        wait_seconds = (target - now).total_seconds()
+        wait_seconds = max(0, (target - now).total_seconds())
 
         logger.info("Next run at %s (in %.0fs)", target.strftime("%H:%M:%S"), wait_seconds)
 
-        try:
-            time.sleep(wait_seconds)
-        except (OSError, InterruptedError):
-            if _shutdown:
-                break
-            continue
-
-        if _shutdown:
+        # event.wait returns True if event was set, False on timeout
+        if _shutdown_event.wait(timeout=wait_seconds):
             break
 
         try:

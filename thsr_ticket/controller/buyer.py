@@ -75,7 +75,7 @@ class Buyer:
 
         for i, candidate in enumerate(candidates):
             if i > 0:
-                delay = 3
+                delay = 10
                 logger.info(f"Waiting {delay}s before next candidate to avoid rate limit...")
                 time.sleep(delay)
 

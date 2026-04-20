@@ -327,15 +327,15 @@ class TestHourlyBooking:
         from datetime import datetime
         now = datetime(2026, 4, 16, 10, 0, 0)
         nxt = next_run_time(now)
-        assert nxt.minute == 2
+        assert nxt.minute == 1
         assert nxt.hour == 10
 
     def test_next_run_time_wraps_to_next_hour(self):
         from hourly_booking import next_run_time
         from datetime import datetime
-        now = datetime(2026, 4, 16, 10, 35, 0)
+        now = datetime(2026, 4, 16, 10, 57, 0)
         nxt = next_run_time(now)
-        assert nxt.minute == 2
+        assert nxt.minute == 1
         assert nxt.hour == 11
 
     def test_next_run_time_between_slots(self):
@@ -343,5 +343,5 @@ class TestHourlyBooking:
         from datetime import datetime
         now = datetime(2026, 4, 16, 10, 10, 0)
         nxt = next_run_time(now)
-        assert nxt.minute == 17
+        assert nxt.minute == 11
         assert nxt.hour == 10

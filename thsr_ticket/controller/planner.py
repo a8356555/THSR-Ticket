@@ -26,15 +26,25 @@ class Planner:
 
         desired = self._generate_desired_requests(today)
 
-        new_requests = [
-            req for req in desired
-            if not self._is_covered(req, existing_reservations)
-            and not self._is_in_queue(req, current_tobuy)
-        ]
+        new_requests = []
+        updated = False
+        for req in desired:
+            if self._is_covered(req, existing_reservations):
+                continue
+            existing = next((item for item in current_tobuy if item.id == req.id), None)
+            if existing is None:
+                new_requests.append(req)
+            elif existing.config.get('candidates') != req.config.get('candidates'):
+                existing.config['candidates'] = req.config['candidates']
+                logger.info(f"Updated candidates for {req.id}: {req.config['candidates']}")
+                updated = True
 
         if new_requests:
             logger.info(f"Adding {len(new_requests)} new ticket requests to queue.")
             self.db.save_ticket_requests(current_tobuy + new_requests)
+        elif updated:
+            logger.info("Synced config changes to existing queue entries.")
+            self.db.save_ticket_requests(current_tobuy)
         else:
             logger.info("No new ticket requests needed.")
 

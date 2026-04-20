@@ -98,6 +98,7 @@ class SearchTrainFlow:
             )
             if is_captcha_error:
                 print(f"Captcha failed ({method}). Retrying...")
+                time.sleep(1)
                 continue
             else:
                 return resp, book_model

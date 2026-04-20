@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import List, Tuple, Optional
 from curl_cffi.requests import Response
 
@@ -73,11 +74,18 @@ class Buyer:
         captcha_config = self.config.get("captcha", {})
 
         for i, candidate in enumerate(candidates):
+            if i > 0:
+                delay = 3
+                logger.info(f"Waiting {delay}s before next candidate to avoid rate limit...")
+                time.sleep(delay)
+
             logger.info(f"Attempting to book: {req.id} for {req.date} (candidate {candidate})")
             try:
+                # Fresh session per candidate to reduce Akamai fingerprint correlation
+                client = HTTPRequest()
                 ticket_config = {**req.config, 'current_candidate': candidate}
                 book_resp, book_model = SearchTrainFlow(
-                    client=self.client,
+                    client=client,
                     record=self.record,
                     ticket_config=ticket_config,
                     captcha_config=captcha_config,
@@ -88,14 +96,14 @@ class Buyer:
                     continue
 
                 train_resp, train_model = ConfirmTrainFlow(
-                    self.client, book_resp, config=req.config
+                    client, book_resp, config=req.config
                 ).run()
 
                 if self._has_error(train_resp):
                     continue
 
                 ticket_resp, _ = ConfirmTicketFlow(
-                    self.client, train_resp, self.record
+                    client, train_resp, self.record
                 ).run()
 
                 if self._has_error(ticket_resp):

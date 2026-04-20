@@ -20,7 +20,7 @@ from typing import Set
 
 import yaml
 
-RUN_MINUTES = list(range(1, 60, 5))  # 01, 06, 11, 16, ..., 51, 56
+RUN_MINUTES = list(range(1, 60, 10))  # 01, 11, 21, 31, 41, 51
 PROJECT_ROOT = Path(__file__).parent
 RESERVATIONS_PATH = PROJECT_ROOT / "reservations.json"
 CONFIG_PATH = PROJECT_ROOT / "config.yaml"

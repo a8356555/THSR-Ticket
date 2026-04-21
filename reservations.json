@@ -1,1 +1,40 @@
-[]
+[
+    {
+        "pnr": "04114511",
+        "payment_deadline": "04/23",
+        "request": {
+            "id": "May Trip_2026-05-08",
+            "config": {
+                "name": "May Trip",
+                "start_station": "Taipei",
+                "dest_station": "Taichung",
+                "candidates": [
+                    "149",
+                    "1245",
+                    "3545",
+                    "669",
+                    "1547",
+                    "849",
+                    "673",
+                    "153"
+                ],
+                "ticket_amount": {
+                    "adult": 1,
+                    "child": 0,
+                    "disabled": 0,
+                    "elder": 0,
+                    "college": 0
+                },
+                "car_class": "standard",
+                "trip_type": "one-way",
+                "seat_preference": "none",
+                "outbound_date": "2026-05-08"
+            },
+            "date": "2026-05-08",
+            "created_at": "2026-04-16T01:07:56.144455"
+        },
+        "train_id": "673",
+        "seat_str": "",
+        "created_at": "2026-04-21T03:22:48.749376"
+    }
+]

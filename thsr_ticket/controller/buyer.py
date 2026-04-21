@@ -119,8 +119,8 @@ class Buyer:
                     pnr=result_model.id,
                     payment_deadline=result_model.payment_deadline,
                     request=req,
-                    train_id=train_model.selected_train,
-                    seat_str="",
+                    train_id=result_model.train_id,
+                    seat_str=result_model.seat,
                 )
                 return True, reservation, i
 

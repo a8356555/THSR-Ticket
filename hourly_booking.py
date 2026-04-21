@@ -102,18 +102,16 @@ def get_booked_trains() -> Set[str]:
         return set()
 
 
-def check_targets(target_trains: Set[str]) -> bool:
-    """Return True if all target trains are booked."""
+def log_booking_status(target_trains: Set[str]) -> None:
+    """Log current booking status vs target trains."""
     booked = get_booked_trains()
-    missing = target_trains - booked
-    done = target_trains & booked
+    held = target_trains & booked
+    pending = target_trains - booked
 
-    if done:
-        logger.info("Booked:  %s", ", ".join(sorted(done)))
-    if missing:
-        logger.info("Missing: %s", ", ".join(sorted(missing)))
-
-    return len(missing) == 0
+    if held:
+        logger.info("Held:    %s", ", ".join(sorted(held)))
+    if pending:
+        logger.info("Pending: %s", ", ".join(sorted(pending)))
 
 
 def next_run_time(now: datetime) -> datetime:
@@ -150,20 +148,17 @@ def main() -> None:
     logger.info("=" * 50)
     logger.info("Hourly booking scheduler started")
     logger.info("Target trains: %s (from config.yaml)", ", ".join(sorted(target_trains)))
-    logger.info("Schedule: every hour at :%02d, :%02d, :%02d", *RUN_MINUTES)
+    minutes_str = ", ".join(f":{m:02d}" for m in RUN_MINUTES)
+    logger.info("Schedule: %s", minutes_str)
     logger.info("-" * 50)
     log_ticket_info()
     logger.info("=" * 50)
 
-    if check_targets(target_trains):
-        logger.info("All target trains already booked. Exiting.")
-        return
+    log_booking_status(target_trains)
 
     # Run immediately on startup
     run_booking()
-    if check_targets(target_trains):
-        logger.info("All target trains booked! Scheduler complete.")
-        return
+    log_booking_status(target_trains)
 
     while not _shutdown_event.is_set():
         now = datetime.now()
@@ -172,7 +167,6 @@ def main() -> None:
 
         logger.info("Next run at %s (in %.0fs)", target.strftime("%H:%M:%S"), wait_seconds)
 
-        # event.wait returns True if event was set, False on timeout
         if _shutdown_event.wait(timeout=wait_seconds):
             break
 
@@ -183,11 +177,9 @@ def main() -> None:
             continue
 
         try:
-            if check_targets(target_trains):
-                logger.info("All target trains booked! Scheduler complete.")
-                return
+            log_booking_status(target_trains)
         except Exception:
-            logger.exception("Failed to check targets, continuing...")
+            logger.exception("Failed to check status, continuing...")
 
     logger.info("Scheduler shut down.")
 
